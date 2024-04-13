@@ -2,12 +2,13 @@ import copy
 import json
 import secrets
 import threading
+import requests
 
 import loguru
 import peewee
 import uvicorn
 from celery.result import AsyncResult
-from fastapi import FastAPI, UploadFile, File, Request
+from fastapi import FastAPI, UploadFile, File, Request, Body
 
 import celery_main
 from models import create_models
@@ -23,13 +24,18 @@ async def root(request: Request):
     return f"This is api for MinMuseum project. Visit {request.base_url}docs for documentation"
 
 
-def send_model_to_webhook(model: ResponseModel, webhook: str):
-    logger.info(f"Sending {model} to webhook {webhook}")
+def send_model_to_webhook(data: ResponseModel, webhook: str):
+    logger.info(f"Sending {data} to webhook {webhook}")
+    requests.post(webhook, data=data.dict)
 
 
 @app.post('/upload', status_code=201, response_model=ResponseModel)
 @return_error_response
-async def upload_file(request: Request, file: UploadFile = File(...)):
+async def upload_file(request: Request, file: UploadFile = File(...),
+                      webhook_url: str | None = Body(None),
+                      webhook_request_id: str | None = Body(None)):
+    if webhook_url == '':
+        webhook_url = DEFAULT_WEBHOOK_URL
     result = ResponseModel()
     file_random_suffix = str(secrets.token_hex(5))[:5]
     contents = file.file.read()
@@ -48,12 +54,14 @@ async def upload_file(request: Request, file: UploadFile = File(...)):
         blob.save()
         upload.save()
     task = celery_main.process_upload.apply_async(args=[upload.get_id()], expires=60 * 10)
-    webhook_url = 'http://TEBEPIZDA'
     task_id = str(task.id)
 
     def _callback(_: dict):
-        make_upload_model(upload, str(request.base_url))
-        send_model_to_webhook(result, webhook_url)
+        res_model = make_upload_model(upload, str(request.base_url))
+        if webhook_request_id is not None:
+            res_model.data['webhook_request_id'] = webhook_request_id
+        if webhook_url is not None:
+            send_model_to_webhook(res_model, webhook_url)
 
     infiniChecker.add_callback_map({'task_id': task_id, 'callback': _callback})
 
@@ -168,7 +176,7 @@ class InfiniChecker(threading.Thread):
             self.__callback_maps.append(copy.deepcopy(callback_map))
             self._new_item_event.set()
 
-
+    @logger.catch(reraise=True)
     def run(self):
         parent = self._parent_thread
         while True:
@@ -184,7 +192,18 @@ class InfiniChecker(threading.Thread):
                 callback = callback_map.get('callback', lambda x: None)
                 task_result = AsyncResult(id=task_id, app=celery_main.celery)
                 if task_result.ready():
-                    callback(task_result)
+                    for try_num in range(4):
+                        if try_num >= 3:
+                            loguru.logger.warning(f"Task {task_id} done but callback failed 3 times. skip")
+                            break
+                        try:
+                            logger.info(f"Task {task_id} Done. Calling callback with {task_result}")
+                            callback(task_result)
+                        except Exception as e:
+                            loguru.logger.exception(e)
+                            parent.join(3)
+                            continue
+                        break
                     with self.thread_lock:
                         self.__callback_maps.remove(callback_map)
                         loguru.logger.info(f"Task {task_id} done")

@@ -1,3 +1,4 @@
+*.db
 /tmp
 /celery
 tests/tmp/
