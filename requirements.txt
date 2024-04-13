@@ -199,3 +199,7 @@ xxhash==3.4.1
 yarl==1.9.4
 zope.event==5.0
 zope.interface==6.2
+pymilvus==2.3.7
+amqp==5.2.0
+lightning==2.2.2
+tensorboard==2.16.2

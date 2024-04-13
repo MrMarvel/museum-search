@@ -19,13 +19,7 @@ class TritonWrapper:
             self.__setattr__(k, v)
         
         self.model_version = '1' if not self.model_version else self.model_version
-        self.client = self._make_client(self.connect_type)
         logger.info('Config has been loaded')
-            
-    
-    def _make_client(self, client_type: str):
-        logger.info('Client has been initialized')
-        return grpcclient.InferenceServerClient(url=self.url, verbose=False)
     
     
     def _postprocess(self, inference_res):
@@ -43,13 +37,14 @@ class TritonWrapper:
     def inference(self, *inp:np.array):
         inputs = []
         
-        for i, name, dt in zip(inp, self.input_names, self.input_dtype):
-            inputs.append(grpcclient.InferInput(name, i.shape, dt))
-            inputs[-1].set_data_from_numpy(i)
-        
-        result = self.client.infer(
-            self.model_name,
-            model_version=self.model_version,
-            inputs=inputs
-        )
-        return self._postprocess(result)
+        with grpcclient.InferenceServerClient(url=self.url, verbose=False) as client:
+            for i, name, dt in zip(inp, self.input_names, self.input_dtype):
+                inputs.append(grpcclient.InferInput(name, i.shape, dt))
+                inputs[-1].set_data_from_numpy(i)
+            
+            result = client.infer(
+                self.model_name,
+                model_version=self.model_version,
+                inputs=inputs
+            )
+            return self._postprocess(result)

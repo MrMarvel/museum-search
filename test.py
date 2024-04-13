@@ -7,7 +7,7 @@ import yaml
 from pathlib import Path
 
 def load_test_image():
-    img_url = '/home/borntowarn/projects/borntowarn/museum_search/185113.jpg'
+    img_url = '/home/borntowarn/projects/borntowarn/museum_search/storage/85658/23441576.jpg'
     image = Image.open(img_url).convert('RGB')
     return image
 
@@ -15,7 +15,8 @@ if __name__ == '__main__':
     config = yaml.safe_load(Path('configs/config.yaml').read_text())
     # text_model = TritonWrapper('./test_cfg.yaml')
     # vis_model = TritonWrapper('./test_cfg_vis.yaml')
-    ensemble = TritonWrapper(config['triton_ensemble_caption'])
+    # ensemble = TritonWrapper(config['triton_ensemble_caption'])
+    ensemble = TritonWrapper(config['triton_ensemble_classification'])
 
     image = load_test_image()
     processor = Blip2Processor.from_pretrained('./weights/blip2_t5/model')
