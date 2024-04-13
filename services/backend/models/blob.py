@@ -1,21 +1,11 @@
 import datetime
-import json
-import os
 import pathlib
 import secrets
 from typing import Union
 
-from peewee import *
+from peewee import CharField, DateTimeField, ForeignKeyField
 
-DATABASE_FILENAME = os.environ.get('DATABASE_FILENAME', 'data.db')
-
-database = SqliteDatabase(DATABASE_FILENAME)
-
-
-# model definitions
-class BaseModel(Model):
-    class Meta:
-        database = database
+from models.base import BaseModel
 
 
 class BlobContainer(BaseModel):
@@ -80,57 +70,3 @@ class Blob(BaseModel):
     @property
     def blob_address(self) -> tuple[str, str]:
         return str(self.container.hex_id), str(self.hex_id)
-
-
-class Upload(BaseModel):
-    blob = ForeignKeyField(Blob)
-    upload_date = DateTimeField(default=datetime.datetime.now)
-
-    def resolve_filepath(self):
-        return self.blob.resolve_path()
-
-    @property
-    def latest_result(self) -> Union['UploadResult', None]:
-        u: 'UploadResult' = (UploadResult.select().where(UploadResult.upload == self)
-                             .order_by(UploadResult.result_date.desc())
-                             .get_or_none())
-        return u
-
-
-class UploadResult(BaseModel):
-    upload = ForeignKeyField(Upload, backref='results')
-    data = TextField()
-    result_date = DateTimeField(default=datetime.datetime.now)
-
-    @property
-    def familiars(self) -> list[Blob]:
-        data = json.loads(str(self.data))
-        familiar_blobs_ids: list = data['familiar_images']
-        blobs = []
-        for i, blob_id in enumerate(familiar_blobs_ids):
-            with database:
-                blob: Blob | None = Blob.get_by_id(blob_id)
-            if blob is None:
-                continue
-            blobs.append(blob)
-        return blobs
-
-    @property
-    def class_name(self) -> str:
-        return json.loads(str(self.data))['class_name']
-
-
-def create_models():
-    database.connect()
-    database.create_tables([BlobContainer, Blob], safe=True)
-    database.create_tables([Upload, UploadResult], safe=True)
-    database.close()
-
-
-def main():
-    u = Upload(filepath='test.jpg')
-    print(json.dumps(u))
-
-
-if __name__ == '__main__':
-    main()
