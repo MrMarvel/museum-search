@@ -1,9 +1,9 @@
 import os
 import pathlib
 
-from services.backend.utils.globals import ENV_FILENAME
-from services.backend.utils.rabbit.connector import Connector
-from services.backend.utils.rabbit.publisher import RabbitPublisher
+from ..globals import ENV_FILENAME
+from ..rabbit.connector import Connector
+from .publisher import RabbitPublisher
 
 
 

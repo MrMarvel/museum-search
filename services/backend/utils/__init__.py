@@ -6,8 +6,8 @@ import fastapi
 from loguru import logger
 from starlette.responses import JSONResponse
 
-from services.backend.models import Upload, database, Blob
-from services.backend.pydantic_models import ResponseModel
+from ..models import Upload, database, Blob
+from ..pydantic_models import ResponseModel
 
 
 def make_upload_model(upload: Upload, base_url: str) -> ResponseModel:

@@ -37,7 +37,7 @@ def create_task(task_type):
     return True
 
 
-@celery.task(name="process_upload", bind=True)
+# @celery.task(name="process_upload", bind=True)
 def process_upload(self, upload_id: int):
     task_id = str(self.request.id)
     with database:

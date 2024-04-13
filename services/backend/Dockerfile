@@ -1,15 +1,13 @@
-FROM python:3.10
+FROM python:3.12
 
 WORKDIR /app
 
 COPY ./services/backend/requirements.txt  ./
 
-RUN pip install -r requirements.txt
+RUN pip install --no-cache-dir -r requirements.txt
 
 COPY ./services/backend ./backend
-COPY ./services/rabbit ./rabbit
-COPY ./configs ./configs
 
 ENV LOGURU_COLORIZE "true"
 
-CMD ["python", "-m", "backend"]
+CMD ["python", "-m", "backend.main"]

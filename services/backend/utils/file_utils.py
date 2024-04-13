@@ -3,8 +3,8 @@ import pathlib
 
 from loguru import logger
 
-from services.backend.models import database, BlobContainer, Blob
-from services.backend.utils.globals import UPLOAD_FOLDER, FAMILIARS_FOLDER, ENV_FILENAME
+from ..models import database, BlobContainer, Blob
+from .globals import UPLOAD_FOLDER, FAMILIARS_FOLDER, ENV_FILENAME
 
 
 def create_folders():

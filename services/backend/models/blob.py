@@ -5,7 +5,7 @@ from typing import Union
 
 from peewee import CharField, DateTimeField, ForeignKeyField
 
-from models.base import BaseModel
+from .base import BaseModel
 
 
 class BlobContainer(BaseModel):

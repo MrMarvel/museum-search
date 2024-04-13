@@ -1,4 +1,3 @@
-import copy
 import json
 import os
 import pathlib
@@ -6,23 +5,18 @@ import secrets
 import threading
 
 import dotenv
-import requests
-
 import peewee
+import requests
 import uvicorn
-from celery.result import AsyncResult
 from fastapi import FastAPI, UploadFile, File, Request, Body
-from loguru import logger
 
-import celery_main
-from models.base import database
-from services.backend.models import create_models, Upload
-from services.backend.models.blob import BlobContainer, Blob
-from services.backend.pydantic_models import ResponseModel
-from services.backend.utils.globals import DEFAULT_WEBHOOK_URL, UPLOAD_FOLDER
-from services.backend.utils.rabbit.thread_consumer import RabbitConsumerThread, RabbitTask
-from utils import *
-from utils.file_utils import create_folders, features_load_blobs, find_trash_items
+from .models import create_models
+from .models.blob import BlobContainer
+from .utils import rabbit
+from .utils.globals import DEFAULT_WEBHOOK_URL, UPLOAD_FOLDER
+from .utils.rabbit.thread_consumer import RabbitConsumerThread, RabbitTask
+from .utils import *
+from .utils.file_utils import create_folders, features_load_blobs, find_trash_items
 
 app = FastAPI()
 
@@ -79,7 +73,7 @@ async def upload_file(request: Request, file: UploadFile = File(...),
             send_model_to_webhook(res_model, webhook_url)
     task.callback = _callback
     rabbit_consumer_thread.add_task(task)
-
+    rabbit.compact_publish_data(task.in_args)
     result.data = {'task_id': task_id}
     return result
 
@@ -179,55 +173,55 @@ async def get_blob(request: Request, container_id: str, blob_id: str):
 #     cel.worker_main(argv=argv)
 
 
-class InfiniChecker(threading.Thread):
-    def __init__(self, parent_thread: threading.Thread = threading.current_thread(), daemon=True, ):
-        super().__init__(daemon=daemon)
-        self._parent_thread = parent_thread
-        self.thread_lock = threading.Lock()
-        self.__callback_maps: list[dict] = list()
-        self._new_item_event = threading.Event()
-
-    def add_callback_map(self, callback_map: dict):
-        with self.thread_lock:
-            self.__callback_maps.append(copy.deepcopy(callback_map))
-            self._new_item_event.set()
-
-    @logger.catch(reraise=True)
-    def run(self):
-        parent = self._parent_thread
-        while True:
-            with self.thread_lock:
-                callback_maps_shadow = copy.deepcopy(self.__callback_maps)
-            if len(callback_maps_shadow) < 1:
-                if self._new_item_event.wait(30):
-                    self._new_item_event.clear()
-                continue
-
-            for callback_map in callback_maps_shadow:
-                task_id = callback_map['task_id']
-                callback = callback_map.get('callback', lambda x: None)
-                task_result = AsyncResult(id=task_id, app=celery_main.celery)
-                if task_result.ready():
-                    for try_num in range(4):
-                        if try_num >= 3:
-                            logger.warning(f"Task {task_id} done but callback failed 3 times. skip")
-                            break
-                        try:
-                            logger.info(f"Task {task_id} Done. Calling callback with {task_result}")
-                            callback(task_result)
-                        except Exception as e:
-                            logger.exception(e)
-                            parent.join(3)
-                            continue
-                        break
-                    with self.thread_lock:
-                        self.__callback_maps.remove(callback_map)
-                        logger.info(f"Task {task_id} done")
-                    continue
-                parent.join(1)
-
-
-infiniChecker: InfiniChecker | None = None
+# class InfiniChecker(threading.Thread):
+#     def __init__(self, parent_thread: threading.Thread = threading.current_thread(), daemon=True, ):
+#         super().__init__(daemon=daemon)
+#         self._parent_thread = parent_thread
+#         self.thread_lock = threading.Lock()
+#         self.__callback_maps: list[dict] = list()
+#         self._new_item_event = threading.Event()
+#
+#     def add_callback_map(self, callback_map: dict):
+#         with self.thread_lock:
+#             self.__callback_maps.append(copy.deepcopy(callback_map))
+#             self._new_item_event.set()
+#
+#     @logger.catch(reraise=True)
+#     def run(self):
+#         parent = self._parent_thread
+#         while True:
+#             with self.thread_lock:
+#                 callback_maps_shadow = copy.deepcopy(self.__callback_maps)
+#             if len(callback_maps_shadow) < 1:
+#                 if self._new_item_event.wait(30):
+#                     self._new_item_event.clear()
+#                 continue
+#
+#             for callback_map in callback_maps_shadow:
+#                 task_id = callback_map['task_id']
+#                 callback = callback_map.get('callback', lambda x: None)
+#                 task_result = AsyncResult(id=task_id, app=celery_main.celery)
+#                 if task_result.ready():
+#                     for try_num in range(4):
+#                         if try_num >= 3:
+#                             logger.warning(f"Task {task_id} done but callback failed 3 times. skip")
+#                             break
+#                         try:
+#                             logger.info(f"Task {task_id} Done. Calling callback with {task_result}")
+#                             callback(task_result)
+#                         except Exception as e:
+#                             logger.exception(e)
+#                             parent.join(3)
+#                             continue
+#                         break
+#                     with self.thread_lock:
+#                         self.__callback_maps.remove(callback_map)
+#                         logger.info(f"Task {task_id} done")
+#                     continue
+#                 parent.join(1)
+#
+#
+# infiniChecker: InfiniChecker | None = None
 rabbit_consumer_thread: RabbitConsumerThread | None = None
 
 
@@ -238,7 +232,7 @@ def main():
     threading.Thread(target=features_load_blobs, daemon=True).start()
     threading.Thread(target=find_trash_items, kwargs={'verbose': True}, daemon=True).start()
     global infiniChecker
-    infiniChecker = InfiniChecker(threading.current_thread(), daemon=True)
+    # infiniChecker = InfiniChecker(threading.current_thread(), daemon=True)
     # infiniChecker.start()
     global  rabbit_consumer_thread
     rabbit_consumer_thread = RabbitConsumerThread()

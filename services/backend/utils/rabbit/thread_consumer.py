@@ -10,8 +10,8 @@ from loguru import logger
 from pika.adapters.blocking_connection import BlockingChannel
 from pika.connection import Connection
 
-from services.backend.utils.globals import ENV_FILENAME
-from services.backend.utils.rabbit.connector import Connector
+from ..globals import ENV_FILENAME
+from ..rabbit.connector import Connector
 
 
 @dataclass
@@ -97,10 +97,15 @@ class RabbitConsumerThread(Thread):
             process_status = str(body_json['status'])
             if process_status.lower() == 'success':
                 ready_file_path = body_json['path']
-                callback(ready_file_path)
+                try:
+                    callback(ready_file_path)
+                except Exception as e:
+                    logger.exception(e)
             else:
                 failed = True
             return task
+        except Exception as e:
+            logger.exception(e)
         finally:
             if task is not None:
                 with self._lock:

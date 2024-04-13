@@ -24,3 +24,10 @@ services:
     environment:
       - LOGURU_LEVEL=${LOGURU_LEVEL}
     network_mode: "host"
+
+  fastapi:
+    build:
+      context: .
+      dockerfile: services/fastapi/Dockerfile
+    volumes:
+        - ./storage/:/storage/

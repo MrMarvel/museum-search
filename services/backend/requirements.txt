@@ -8,3 +8,5 @@ pydantic
 starlette
 loguru
 requests
+python-dotenv
+pika
