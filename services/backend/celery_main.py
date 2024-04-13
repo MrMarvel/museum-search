@@ -6,6 +6,8 @@ import time
 from celery import Celery
 from celery.utils.log import get_task_logger
 
+from models import database
+
 logger = get_task_logger(__name__)
 
 celery = Celery(__name__)
@@ -24,7 +26,6 @@ celery.conf.worker_pool = 'solo'
 celery.conf.worker_prefetch_multiplier = 1
 celery.conf.worker_concurrency = 1
 
-from models import Upload, UploadResult, database, BlobContainer, Blob
 
 
 @celery.task(name="create_task")
@@ -70,7 +71,7 @@ def process_upload(self, upload_id: int):
 
     return {
         'task_id': task_id,
-        'text':f"YOU ARE NOT SUPPOSED TO SEE THAT! {data}"
+        'text': f"YOU ARE NOT SUPPOSED TO SEE THAT! {data}"
     }  # everyone ignore this value
     # because noone will wait it for fast response
 

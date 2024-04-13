@@ -11,9 +11,9 @@ from peewee import *
 
 __all__ = ['BlobContainer', 'Blob', 'Upload', 'UploadResult', 'database', 'create_models']
 
-from models.base import database
-from models.blob import BlobContainer, Blob
-from models.upload import Upload, UploadResult
+from .base import database
+from .blob import BlobContainer, Blob
+from .upload import Upload, UploadResult
 
 
 def create_models():

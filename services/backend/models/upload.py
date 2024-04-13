@@ -2,15 +2,17 @@ import datetime
 import json
 from typing import Union
 
-from peewee import ForeignKeyField, TextField, DateTimeField
+from peewee import ForeignKeyField, TextField, DateTimeField, CharField
 
-from models.base import BaseModel, database
-from models.blob import Blob
+from .base import BaseModel, database
+from .blob import Blob
 
 
 class Upload(BaseModel):
     blob = ForeignKeyField(Blob)
     upload_date = DateTimeField(default=datetime.datetime.now)
+    task_id = CharField(null=True)
+    webhook_url = CharField(null=True)
 
     def resolve_filepath(self):
         return self.blob.resolve_path()

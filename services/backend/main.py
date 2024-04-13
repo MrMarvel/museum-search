@@ -1,17 +1,23 @@
 import copy
 import json
+import os
+import pathlib
 import secrets
 import threading
 import requests
 
-import loguru
 import peewee
 import uvicorn
 from celery.result import AsyncResult
 from fastapi import FastAPI, UploadFile, File, Request, Body
+from loguru import logger
 
 import celery_main
-from models import create_models
+from models.base import database
+from services.backend.models import create_models, Upload
+from services.backend.models.blob import BlobContainer, Blob
+from services.backend.pydantic_models import ResponseModel
+from services.backend.utils.globals import DEFAULT_WEBHOOK_URL, UPLOAD_FOLDER
 from utils import *
 from utils.file_utils import create_folders, features_load_blobs, find_trash_items
 
@@ -26,16 +32,18 @@ async def root(request: Request):
 
 def send_model_to_webhook(data: ResponseModel, webhook: str):
     logger.info(f"Sending {data} to webhook {webhook}")
-    requests.post(webhook, data=data.dict)
+    requests.post(webhook, json=data.dict)
 
 
 @app.post('/upload', status_code=201, response_model=ResponseModel)
 @return_error_response
 async def upload_file(request: Request, file: UploadFile = File(...),
-                      webhook_url: str | None = Body(None),
-                      webhook_request_id: str | None = Body(None)):
-    if webhook_url == '':
+                      webhook_url: str | None = Body(None, embed=True),
+                      webhook_request_id: str | None = Body(None, embed=True)):
+    logger.info(f"Uploading file {file.filename} with webhook {webhook_url} and request_id {webhook_request_id}")
+    if webhook_url.lower() == 'default':
         webhook_url = DEFAULT_WEBHOOK_URL
+        logger.info(f'Using default webhook. Replaced with {webhook_url}')
     result = ResponseModel()
     file_random_suffix = str(secrets.token_hex(5))[:5]
     contents = file.file.read()
@@ -194,19 +202,19 @@ class InfiniChecker(threading.Thread):
                 if task_result.ready():
                     for try_num in range(4):
                         if try_num >= 3:
-                            loguru.logger.warning(f"Task {task_id} done but callback failed 3 times. skip")
+                            logger.warning(f"Task {task_id} done but callback failed 3 times. skip")
                             break
                         try:
                             logger.info(f"Task {task_id} Done. Calling callback with {task_result}")
                             callback(task_result)
                         except Exception as e:
-                            loguru.logger.exception(e)
+                            logger.exception(e)
                             parent.join(3)
                             continue
                         break
                     with self.thread_lock:
                         self.__callback_maps.remove(callback_map)
-                        loguru.logger.info(f"Task {task_id} done")
+                        logger.info(f"Task {task_id} done")
                     continue
                 parent.join(1)
 
