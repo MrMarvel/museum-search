@@ -4,6 +4,8 @@ import os
 import pathlib
 import secrets
 import threading
+
+import dotenv
 import requests
 
 import peewee
@@ -18,6 +20,7 @@ from services.backend.models import create_models, Upload
 from services.backend.models.blob import BlobContainer, Blob
 from services.backend.pydantic_models import ResponseModel
 from services.backend.utils.globals import DEFAULT_WEBHOOK_URL, UPLOAD_FOLDER
+from services.backend.utils.rabbit.thread_consumer import RabbitConsumerThread, RabbitTask
 from utils import *
 from utils.file_utils import create_folders, features_load_blobs, find_trash_items
 
@@ -61,8 +64,12 @@ async def upload_file(request: Request, file: UploadFile = File(...),
     with database:
         blob.save()
         upload.save()
-    task = celery_main.process_upload.apply_async(args=[upload.get_id()], expires=60 * 10)
-    task_id = str(task.id)
+    # task = celery_main.process_upload.apply_async(args=[upload.get_id()], expires=60 * 10)
+    task = RabbitTask(task_id=upload.task_id)
+    task.in_args = {
+        'upload_id': upload.get_id()
+    }
+    task_id = str(task.task_id)
 
     def _callback(_: dict):
         res_model = make_upload_model(upload, str(request.base_url))
@@ -70,8 +77,8 @@ async def upload_file(request: Request, file: UploadFile = File(...),
             res_model.data['webhook_request_id'] = webhook_request_id
         if webhook_url is not None:
             send_model_to_webhook(res_model, webhook_url)
-
-    infiniChecker.add_callback_map({'task_id': task_id, 'callback': _callback})
+    task.callback = _callback
+    rabbit_consumer_thread.add_task(task)
 
     result.data = {'task_id': task_id}
     return result
@@ -80,6 +87,7 @@ async def upload_file(request: Request, file: UploadFile = File(...),
 @app.get('/task_status')
 @return_error_response
 async def task_status(request: Request, task_id: str) -> ResponseModel:
+    raise NotImplementedError("Broken now")
     task_result = AsyncResult(id=task_id)
     result = ResponseModel()
     result.data["task_id"] = str(task_id)
@@ -220,16 +228,21 @@ class InfiniChecker(threading.Thread):
 
 
 infiniChecker: InfiniChecker | None = None
+rabbit_consumer_thread: RabbitConsumerThread | None = None
 
 
 def main():
     create_models()
     create_folders()
+    dotenv.load_dotenv()
     threading.Thread(target=features_load_blobs, daemon=True).start()
     threading.Thread(target=find_trash_items, kwargs={'verbose': True}, daemon=True).start()
     global infiniChecker
     infiniChecker = InfiniChecker(threading.current_thread(), daemon=True)
-    infiniChecker.start()
+    # infiniChecker.start()
+    global  rabbit_consumer_thread
+    rabbit_consumer_thread = RabbitConsumerThread()
+    rabbit_consumer_thread.start()
     port = 8102
     logger.info(f"Access: http://127.0.0.1:{port}")
     uvicorn.run(app, host="0.0.0.0", port=8102)

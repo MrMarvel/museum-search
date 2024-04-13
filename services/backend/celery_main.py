@@ -7,7 +7,8 @@ from celery import Celery
 from celery.utils.log import get_task_logger
 
 from models import Upload, BlobContainer, Blob, UploadResult, database
-from services.backend.utils.rabbit.rabbit_wrapper import RabbitWrapper
+from services.backend.utils import rabbit
+from utils.rabbit import publisher
 
 logger = get_task_logger(__name__)
 
@@ -43,7 +44,7 @@ def process_upload(self, upload_id: int):
         upload = Upload.get_by_id(upload_id)
         familiar_container = BlobContainer.get_by_name('familiars')
     # send
-    RabbitWrapper()
+    # rabbit.compact_publish_data({task.})
     # wait for the task to finish
     time.sleep(10)
     data = {"familiar_images": [

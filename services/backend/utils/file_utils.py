@@ -3,8 +3,8 @@ import pathlib
 
 from loguru import logger
 
-from models import database, BlobContainer, Blob
-from utils.globals import UPLOAD_FOLDER, FAMILIARS_FOLDER
+from services.backend.models import database, BlobContainer, Blob
+from services.backend.utils.globals import UPLOAD_FOLDER, FAMILIARS_FOLDER, ENV_FILENAME
 
 
 def create_folders():
@@ -24,7 +24,10 @@ def create_folders():
         with database:
             if not BlobContainer.select().where(BlobContainer.folder_path == str(mount_path)).exists():
                 BlobContainer.create(folder_path=str(mount_path))
-
+    if not os.path.exists(ENV_FILENAME):
+        os.makedirs(pathlib.Path(ENV_FILENAME).parent, exist_ok=True)
+        with open(ENV_FILENAME, 'w', encoding='utf-8') as f:
+            f.write('')
 
 def find_trash_items(verbose=False):
     if verbose:
