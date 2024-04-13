@@ -1,0 +1,21 @@
+version: '3.5'
+
+services:
+  convertation:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: ["/bin/bash"]
+    tty: true
+    stdin_open: true
+    volumes:
+      - ../weights:/weights
+      - ./blip2_t5/:/app/blip2_t5
+      - ./mlp/:/app/mlp
+    deploy:                              # Разрешение на использование GPU
+      resources:
+        reservations:
+          devices:
+            - capabilities: [gpu]
+              device_ids: ['0']
+              driver: nvidia

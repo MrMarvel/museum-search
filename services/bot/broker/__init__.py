@@ -1,0 +1,1 @@
+from .rabbit_wrapper import RabbitWrapper

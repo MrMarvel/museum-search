@@ -1,0 +1,46 @@
+name: "ensemble_model_classification"
+platform: "ensemble"
+max_batch_size: 8
+input [
+  {
+      name: "input"
+      data_type: TYPE_FP16
+      dims: [3, 364, 364]
+  }
+]
+output [
+  {
+    name: "output"
+    data_type: TYPE_FP16
+    dims: [15]
+  }
+]
+ensemble_scheduling {
+  step [
+    {
+      model_name: "vision_model"
+      model_version: -1
+      input_map {
+        key: "input"
+        value: "input"
+      }
+      output_map {
+        key: "pooled_output"
+        value: "pooled_output"
+      }
+    },
+    {
+      model_name: "mlp_model"
+      model_version: -1
+      input_map {
+        key: "input"
+        value: "pooled_output"
+      }
+
+      output_map {
+        key: "output"
+        value: "output"
+      }
+    }
+  ]
+}
