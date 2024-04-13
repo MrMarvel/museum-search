@@ -1,9 +1,9 @@
 fastapi
-uvicorn
-aiohttp
-requests
-celery
-python-dotenv
-amqp
+peewee
 python-multipart
+celery
+uvicorn
+watchdog
+pydantic
+starlette
 loguru
