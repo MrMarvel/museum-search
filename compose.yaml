@@ -1,6 +1,7 @@
 version: '3.5'
 
 services:
+
   adapter:
     build:
       context: .
@@ -14,7 +15,6 @@ services:
       replicas: ${NUM_REPLICAS}
     network_mode: "host"
   
-
   bot:
     build:
       context: .

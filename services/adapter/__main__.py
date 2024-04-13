@@ -54,18 +54,6 @@ class Model:
             default_value="Unknown"
         )
         
-        object_id = FieldSchema(
-            name="object_id",
-            dtype=DataType.INT64,
-        )
-        
-        description = FieldSchema(
-            name="description",
-            dtype=DataType.VARCHAR,
-            max_length=10000,
-            default_value="Unknown"
-        )
-        
         features = FieldSchema(
             name="features",
             dtype=DataType.FLOAT_VECTOR,
@@ -73,7 +61,7 @@ class Model:
         )
 
         schema = CollectionSchema(
-            fields=[img_id, image_path, object_id, description, features],
+            fields=[img_id, image_path, features],
             description='Image retrieval',
             enable_dynamic_field=True
         )
@@ -111,6 +99,7 @@ class Model:
         result = {'class': class_}
         return result
 
+    
     def __call__(self, task: str, image_path: str = '', object_id: str = '', description: str = '', user_id = None):
         match task:
             case 'classification':
