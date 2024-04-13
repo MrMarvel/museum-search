@@ -10,8 +10,16 @@ logger = get_task_logger(__name__)
 
 celery = Celery(__name__)
 celery.conf.broker_url = os.environ.get("CELERY_BROKER_URL", "amqp://localhost:5672")
-celery.conf.result_backend = os.environ.get("CELERY_RESULT_BACKEND", "rpc://")
-celery.conf.broker_connection_retry_on_startup = False
+celery.conf.result_backend = os.environ.get("CELERY_RESULT_BACKEND",
+                                            f"file:///{pathlib.Path('.').absolute()}/tmp/celery")
+celery.conf.cache_backend = os.environ.get("CELERY_CACHE_BACKEND",
+                                           f"file:///{pathlib.Path('.').absolute()}/tmp/celery")
+path = pathlib.Path(celery.conf.result_backend)
+if path.parts[0] == 'file:':
+    path = pathlib.Path('/'.join(path.parts[1:]))
+    if not os.path.exists(path):
+        os.makedirs(path)
+celery.conf.broker_connection_retry_on_startup = True
 celery.conf.worker_pool = 'solo'
 celery.conf.worker_prefetch_multiplier = 1
 celery.conf.worker_concurrency = 1
@@ -27,8 +35,9 @@ def create_task(task_type):
     return True
 
 
-@celery.task(name="process_upload")
-def process_upload(upload_id: int, base_url: str):
+@celery.task(name="process_upload", bind=True)
+def process_upload(self, upload_id: int):
+    task_id = str(self.request.id)
     with database:
         upload = Upload.get_by_id(upload_id)
         familiar_container = BlobContainer.get_by_name('familiars')
@@ -59,7 +68,10 @@ def process_upload(upload_id: int, base_url: str):
         UploadResult.create(upload=upload, data=json.dumps(data, ensure_ascii=False))
     logger.info(f"Saved UploadResult {UploadResult}")
 
-    return f"YOU ARE NOT SUPPOSED TO SEE THAT! {data}"  # everyone ignore this value
+    return {
+        'task_id': task_id,
+        'text':f"YOU ARE NOT SUPPOSED TO SEE THAT! {data}"
+    }  # everyone ignore this value
     # because noone will wait it for fast response
 
 

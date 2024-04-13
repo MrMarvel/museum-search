@@ -11,7 +11,7 @@ from utils.file_utils import *
 from utils.globals import *
 
 
-def make_upload_response(upload: Upload, base_url: str) -> ResponseModel:
+def make_upload_model(upload: Upload, base_url: str) -> ResponseModel:
     # verify skip
     result = ResponseModel()
     base_url = str(base_url)

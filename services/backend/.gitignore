@@ -1,3 +1,5 @@
+/tmp
+/celery
 tests/tmp/
 uploads/
 familiars/

@@ -1,20 +1,16 @@
+import copy
 import json
-import os
-import pathlib
 import secrets
 import threading
 
-import fastapi
+import loguru
 import peewee
 import uvicorn
 from celery.result import AsyncResult
 from fastapi import FastAPI, UploadFile, File, Request
-from loguru import logger
-from starlette.responses import JSONResponse
 
 import celery_main
-from models import Upload, create_models, database, Blob, BlobContainer
-from pydantic_models import ResponseModel
+from models import create_models
 from utils import *
 from utils.file_utils import create_folders, features_load_blobs, find_trash_items
 
@@ -25,6 +21,10 @@ app = FastAPI()
 @return_error_response
 async def root(request: Request):
     return f"This is api for MinMuseum project. Visit {request.base_url}docs for documentation"
+
+
+def send_model_to_webhook(model: ResponseModel, webhook: str):
+    logger.info(f"Sending {model} to webhook {webhook}")
 
 
 @app.post('/upload', status_code=201, response_model=ResponseModel)
@@ -47,18 +47,17 @@ async def upload_file(request: Request, file: UploadFile = File(...)):
     with database:
         blob.save()
         upload.save()
-
-    # def on_upload_success(result_dict: dict):
-    #     if result_dict.get('status', '').lower() != 'success':
-    #         return
-    #     result = result_dict.get('result')
-    #     print(json.dumps(result))
-    #     with database:
-    #         upload_result = UploadResult(upload=upload, data=json.dumps(result))
-    #         upload_result.save()
-
     task = celery_main.process_upload.apply_async(args=[upload.get_id()], expires=60 * 10)
-    result.data = {'task_id': str(task.id)}
+    webhook_url = 'http://TEBEPIZDA'
+    task_id = str(task.id)
+
+    def _callback(_: dict):
+        make_upload_model(upload, str(request.base_url))
+        send_model_to_webhook(result, webhook_url)
+
+    infiniChecker.add_callback_map({'task_id': task_id, 'callback': _callback})
+
+    result.data = {'task_id': task_id}
     return result
 
 
@@ -112,7 +111,7 @@ async def get_upload(request: Request, upload_id: int):
         result.error = "Upload not found"
         return fastapi.responses.JSONResponse(content=result.dict, status_code=fastapi.status.HTTP_403_FORBIDDEN)
     # verify skip
-    return fastapi.responses.JSONResponse(make_upload_response(upload, str(request.base_url)).dict)
+    return fastapi.responses.JSONResponse(make_upload_model(upload, str(request.base_url)).dict)
 
 
 @app.get('/storage/blobs/{container_id}/{blob_id}')
@@ -135,11 +134,75 @@ async def get_blob(request: Request, container_id: str, blob_id: str):
     return fastapi.responses.FileResponse(file_path)
 
 
+# cel = celery.Celery(__name__)
+# cel.conf.update(celery_main.celery.conf)
+# cel.conf.worker_pool = 'threads'
+
+
+# @cel.task(name="celery_callback")
+# def celery_callback(result):
+#     time.sleep(10)
+#     logger.info(f"Task result: {result}")
+#     # logger.info(a)
+
+
+# def celery_worker():
+#     argv = [
+#         'worker',
+#         '--loglevel=INFO',
+#         '--hostname=fastapi_celery'
+#     ]
+#     cel.worker_main(argv=argv)
+
+
+class InfiniChecker(threading.Thread):
+    def __init__(self, parent_thread: threading.Thread = threading.current_thread(), daemon=True, ):
+        super().__init__(daemon=daemon)
+        self._parent_thread = parent_thread
+        self.thread_lock = threading.Lock()
+        self.__callback_maps: list[dict] = list()
+        self._new_item_event = threading.Event()
+
+    def add_callback_map(self, callback_map: dict):
+        with self.thread_lock:
+            self.__callback_maps.append(copy.deepcopy(callback_map))
+            self._new_item_event.set()
+
+
+    def run(self):
+        parent = self._parent_thread
+        while True:
+            with self.thread_lock:
+                callback_maps_shadow = copy.deepcopy(self.__callback_maps)
+            if len(callback_maps_shadow) < 1:
+                if self._new_item_event.wait(30):
+                    self._new_item_event.clear()
+                continue
+
+            for callback_map in callback_maps_shadow:
+                task_id = callback_map['task_id']
+                callback = callback_map.get('callback', lambda x: None)
+                task_result = AsyncResult(id=task_id, app=celery_main.celery)
+                if task_result.ready():
+                    callback(task_result)
+                    with self.thread_lock:
+                        self.__callback_maps.remove(callback_map)
+                        loguru.logger.info(f"Task {task_id} done")
+                    continue
+                parent.join(1)
+
+
+infiniChecker: InfiniChecker | None = None
+
+
 def main():
     create_models()
     create_folders()
     threading.Thread(target=features_load_blobs, daemon=True).start()
     threading.Thread(target=find_trash_items, kwargs={'verbose': True}, daemon=True).start()
+    global infiniChecker
+    infiniChecker = InfiniChecker(threading.current_thread(), daemon=True)
+    infiniChecker.start()
     port = 8102
     logger.info(f"Access: http://127.0.0.1:{port}")
     uvicorn.run(app, host="0.0.0.0", port=8102)
