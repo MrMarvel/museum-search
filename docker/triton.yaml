@@ -1,0 +1,22 @@
+version: '3.5'
+
+services:
+  tritonserver:
+    build:
+      context: .
+      dockerfile: Dockerfile.triton 
+    command: ["tritonserver", "--model-repository=/models", "--exit-on-error=false"]
+    volumes:
+      - ../model_repository_running:/models      # Папка с движками моделей и конфигами
+      - ../weights:/weights
+    ports:
+      - "8000:8000"
+      - "8001:8001"
+      - "8002:8002"
+    deploy:                              # Разрешение на использование GPU
+      resources:
+        reservations:
+          devices:
+            - capabilities: [gpu]
+              device_ids: ['0']
+              driver: nvidia
