@@ -20,6 +20,17 @@ from services.backend.pydantic_models import ResponseModel
 from services.backend.utils.globals import DEFAULT_WEBHOOK_URL, UPLOAD_FOLDER
 from utils import *
 from utils.file_utils import create_folders, features_load_blobs, find_trash_items
+from threading import Lock
+
+from utils.rabbit import RabbitPublisher, RabbitConnector
+
+##########################
+callback_map = {}
+check_lock = Lock()
+con = RabbitConnector()
+connection, channel, input_queue, output_queue = con.connect()
+publisher = RabbitPublisher(channel, connection, output_queue)
+############################
 
 app = FastAPI()
 
@@ -63,13 +74,33 @@ async def upload_file(request: Request, file: UploadFile = File(...),
         upload.save()
     task = celery_main.process_upload.apply_async(args=[upload.get_id()], expires=60 * 10)
     task_id = str(task.id)
+    
+    #############################################
+    id = 'iqweufnlwv'
 
-    def _callback(_: dict):
+    def _callback(msg, id):
+        class_ = msg['class']
+        caption = msg['caption']
+        images = msg['retrieval']
+        
         res_model = make_upload_model(upload, str(request.base_url))
         if webhook_request_id is not None:
             res_model.data['webhook_request_id'] = webhook_request_id
         if webhook_url is not None:
             send_model_to_webhook(res_model, webhook_url)
+    
+    
+    try:
+        with check_lock:
+            callback_map[task_id] = {
+                'callback': lambda msg: _callback(msg, id)
+            }
+        
+        publisher.publish({"task": 'all', "image_path": file_abs_path})
+    except Exception as e:
+        logger.error(f'Error: {e}')
+        return 'failed'
+    #################################################
 
     infiniChecker.add_callback_map({'task_id': task_id, 'callback': _callback})
 

@@ -74,7 +74,7 @@ async def upload_file(
                 'path': tmp_filename
             }
         
-        publisher.publish(tmp_filename, upload_id)
+        publisher.publish({"task": 'all', "image_path": ''})
     except Exception as e:
         logger.error(f'Error: {e}')
         return 'failed'
