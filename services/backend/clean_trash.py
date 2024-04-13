@@ -1,10 +1,5 @@
 import main as app_main
-
-
-def remove_trash():
-    l = app_main.find_trash_items()
-    for trash in l:
-        trash.unlink()
+from utils import remove_trash
 
 
 def main():

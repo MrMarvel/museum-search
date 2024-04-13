@@ -79,3 +79,9 @@ def features_load_blobs():
         logger.info("Finished loading new blobs")
     else:
         logger.info("No new blobs found")
+
+
+def remove_trash():
+    trash_list = find_trash_items()
+    for trash in trash_list:
+        trash.unlink()
