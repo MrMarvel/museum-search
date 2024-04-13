@@ -1,0 +1,9 @@
+fastapi
+uvicorn
+aiohttp
+requests
+celery
+python-dotenv
+amqp
+python-multipart
+loguru
