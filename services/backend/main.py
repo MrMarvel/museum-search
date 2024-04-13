@@ -263,27 +263,6 @@ async def get_upload(request: Request, upload_id: int):
     return fastapi.responses.JSONResponse(make_upload_response(upload, str(request.base_url)).dict)
 
 
-# @app.get('/storage/upload/{upload_id}')
-# @return_error_response
-# async def get_upload_file(request: Request, upload_id: int):
-#     raise DeprecationWarning("DEPRECATED")
-#     result = ResponseModel()
-#     try:
-#         with database:
-#             upload: Upload = Upload.get_by_id(upload_id)
-#     except peewee.DoesNotExist:
-#         result.error = "Upload not found"
-#         result.status = ResponseModel.Status.error
-#         # by fact 404 =)
-#         return fastapi.responses.JSONResponse(content=result.dict, status_code=fastapi.status.HTTP_403_FORBIDDEN)
-#     file_path = upload.resolve_filepath(UPLOAD_FOLDER)
-#     if not os.path.exists(file_path):
-#         result.error = "File not found"
-#         result.status = ResponseModel.Status.error
-#         return fastapi.responses.JSONResponse(content=result.dict, status_code=fastapi.status.HTTP_404_NOT_FOUND)
-#     return fastapi.responses.FileResponse(file_path)
-
-
 @app.get('/storage/blobs/{container_id}/{blob_id}')
 @return_error_response
 async def get_blob(request: Request, container_id: str, blob_id: str):
