@@ -6,7 +6,8 @@ import time
 from celery import Celery
 from celery.utils.log import get_task_logger
 
-from models import database
+from models import Upload, BlobContainer, Blob, UploadResult, database
+from services.backend.utils.rabbit.rabbit_wrapper import RabbitWrapper
 
 logger = get_task_logger(__name__)
 
@@ -27,7 +28,6 @@ celery.conf.worker_prefetch_multiplier = 1
 celery.conf.worker_concurrency = 1
 
 
-
 @celery.task(name="create_task")
 def create_task(task_type):
     logger.info(f"Start {task_type}")
@@ -43,7 +43,7 @@ def process_upload(self, upload_id: int):
         upload = Upload.get_by_id(upload_id)
         familiar_container = BlobContainer.get_by_name('familiars')
     # send
-    #
+    RabbitWrapper()
     # wait for the task to finish
     time.sleep(10)
     data = {"familiar_images": [
