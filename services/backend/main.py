@@ -177,8 +177,7 @@ async def upload_file(request: Request, file: UploadFile = File(...)):
     #         upload_result.save()
 
     task = celery_main.process_upload.apply_async(args=[upload.get_id()], expires=60 * 10)
-    result.data = {'task_id': str(task.id),
-                   'upload_id': upload.get_id()}
+    result.data = {'task_id': str(task.id)}
     return result
 
 
@@ -218,9 +217,36 @@ async def get_uploads(request: Request):
     }
     return JSONResponse(result)
 
+
+def make_upload_response(upload: Upload, base_url: str) -> ResponseModel:
+    # verify skip
+    result = ResponseModel()
+    base_url = str(base_url)
+    upload_date: datetime.datetime = upload.upload_date
+    with database:
+        blob: Blob = upload.blob
+    blob_address = blob.blob_address
+    extras = {}
+    if upload.latest_result is not None:
+        extra_item = {
+            'class_name': str(upload.latest_result.class_name),
+            'familiars': [blob_url(base_url, x) for x in upload.latest_result.familiars],
+        }
+        extras['detection'] = extra_item
+    result.data = {
+        'upload_id': upload.get_id(),
+        'upload_date': upload_date.strftime('%d.%m.%Y %H:%M:%S'),
+        'url': blob_url(base_url, blob),
+        'extras': extras,
+    }
+    return result
+
+
 def blob_url(base_url: str, blob: Blob) -> str:
     blob_id1, blob_id2 = blob.blob_address
     return f"{str(base_url).removesuffix(r'/')}/storage/blobs/{blob_id1}/{blob_id2}"
+
+
 @app.get("/upload/{upload_id}", response_model=ResponseModel)
 @return_error_response
 async def get_upload(request: Request, upload_id: int):
@@ -228,30 +254,13 @@ async def get_upload(request: Request, upload_id: int):
     try:
         with database:
             upload: Upload = Upload.get_by_id(upload_id)
-            blob: Blob = upload.blob
     except peewee.DoesNotExist:
         # status code via CLASS ENUM
         result.status = ResponseModel.Status.error
         result.error = "Upload not found"
         return fastapi.responses.JSONResponse(content=result.dict, status_code=fastapi.status.HTTP_403_FORBIDDEN)
     # verify skip
-    upload_date: datetime.datetime = upload.upload_date
-    blob_address = blob.blob_address
-    base_url = str(request.base_url)
-    extras = []
-    if upload.latest_result is not None:
-        extra_item = {
-            'class_name': str(upload.latest_result.class_name),
-            'familiars': [blob_url(base_url, x) for x in upload.latest_result.familiars],
-        }
-        extras.append(extra_item)
-    result.data = {
-        'upload_id': upload.get_id(),
-        'upload_date': upload_date.strftime('%d.%m.%Y %H:%M:%S'),
-        'url': blob_url(base_url, blob),
-        'extras': extras,
-    }
-    return fastapi.responses.JSONResponse(result.dict)
+    return fastapi.responses.JSONResponse(make_upload_response(upload, str(request.base_url)).dict)
 
 
 # @app.get('/storage/upload/{upload_id}')

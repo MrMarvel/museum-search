@@ -28,7 +28,7 @@ def create_task(task_type):
 
 
 @celery.task(name="process_upload")
-def process_upload(upload_id: int):
+def process_upload(upload_id: int, base_url: str):
     with database:
         upload = Upload.get_by_id(upload_id)
         familiar_container = BlobContainer.get_by_name('familiars')
