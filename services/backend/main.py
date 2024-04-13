@@ -1,16 +1,11 @@
-import asyncio
-import datetime
 import json
 import os
 import pathlib
 import secrets
 import threading
-from enum import Enum
-from functools import wraps
 
 import fastapi
 import peewee
-import pydantic
 import uvicorn
 from celery.result import AsyncResult
 from fastapi import FastAPI, UploadFile, File, Request
@@ -19,125 +14,11 @@ from starlette.responses import JSONResponse
 
 import celery_main
 from models import Upload, create_models, database, Blob, BlobContainer
-
-UPLOAD_FOLDER = os.environ.get('UPLOAD_FOLDER', './uploads')
-FAMILIARS_FOLDER = os.environ.get('FAMILIARS_FOLDER', './familiars')
-
-
-def create_folders():
-    if not os.path.exists(UPLOAD_FOLDER):
-        os.makedirs(UPLOAD_FOLDER)
-    if not os.path.exists(FAMILIARS_FOLDER):
-        os.makedirs(FAMILIARS_FOLDER)
-        with open(pathlib.Path(FAMILIARS_FOLDER) / 'README.txt', 'w', encoding='utf-8') as f:
-            f.write('You should place IMAGE DATASET in that folder.\n'
-                    'The dataset should be in the following format:\n'
-                    'uploads/im1.jpg\n'
-                    'uploads/im2.png\n'
-                    '...')
-    mounts = [UPLOAD_FOLDER, FAMILIARS_FOLDER]
-    for mount in mounts:
-        mount_path = pathlib.Path(mount)
-        with database:
-            if not BlobContainer.select().where(BlobContainer.folder_path == str(mount_path)).exists():
-                BlobContainer.create(folder_path=str(mount_path))
-
-
-def find_trash_items(verbose=False):
-    if verbose:
-        logger.info("Searching for trash items")
-    files_list = []
-    files_to_remove = []
-    with database:
-        containers: list[BlobContainer] = list(BlobContainer.select())
-
-    for container in containers:
-        with database:
-            blobs: list[Blob] = container.__getattribute__('blobs')
-        for blob in blobs:
-            files_list.append(pathlib.Path(container.folder_path) / blob.file_path)
-    for file in files_list:
-        if not file.exists():
-            if verbose:
-                logger.info(f"Found {file}")
-            files_to_remove.append(file)
-    # if os.path.exists(UPLOAD_FOLDER):
-    #     for file in os.listdir(UPLOAD_FOLDER):
-    #         file_path = pathlib.Path(UPLOAD_FOLDER) / file
-    #         if file_path not in files_list:
-    #             if verbose:
-    #                 print(f"Found {file_path}")
-    #             files_to_remove.append(file_path)
-    return files_to_remove
-
-
-def features_load_blobs():
-    with database:
-        container = BlobContainer.get_by_folder_path(FAMILIARS_FOLDER)
-        blobs: list[Blob] = container.__getattribute__('blobs')
-    logger.info("Loading new blobs")
-    new_blobs = []
-    blobs_paths = [b.file_path for b in blobs]
-    for path in pathlib.Path(FAMILIARS_FOLDER).rglob('*'):
-        try:
-            if path.is_dir():
-                continue
-            relative_path = path.relative_to(FAMILIARS_FOLDER)
-            if str(relative_path) in blobs_paths:
-                continue
-            logger.info(f"Found new Blob {path}. Adding")
-            blob = Blob(file_path=relative_path, container=container)
-            new_blobs.append(blob)
-        except Exception as e:
-            logger.exception(e)
-    if len(new_blobs) > 0:
-        with database:
-            Blob.bulk_create(new_blobs, batch_size=10)
-        logger.info("Finished loading new blobs")
-    else:
-        logger.info("No new blobs found")
-
+from pydantic_models import ResponseModel
+from utils import *
+from utils.file_utils import create_folders, features_load_blobs, find_trash_items
 
 app = FastAPI()
-
-
-def return_error_response(func):
-    if not asyncio.iscoroutinefunction(func):
-        raise TypeError("Function must be async")
-
-    @wraps(func)
-    async def _wrapper(*args, **kwargs):
-        try:
-            return await func(*args, **kwargs)
-        except Exception as e:
-            logger.exception(e)
-            return JSONResponse(content=ErrorResponse(error=str(e)).dict,
-                                status_code=fastapi.status.HTTP_500_INTERNAL_SERVER_ERROR)
-
-    return _wrapper
-
-
-class ResponseModel(pydantic.BaseModel):
-    class Status(str, Enum):
-        success = "success"
-        error = "error"
-
-    status: Status = Status.success
-    data: dict = {}
-    error: str = ""
-    comment: str | None = None
-
-    @property
-    def dict(self, **kwargs) -> dict:
-        return self.model_dump(warnings='none', exclude_none=True)
-
-
-class ErrorResponse(ResponseModel):
-    def __init__(self, error: str = None):
-        super().__init__()
-        self.status = ResponseModel.Status.error
-        if error is not None:
-            self.error = error
 
 
 @app.get("/")
@@ -216,35 +97,6 @@ async def get_uploads(request: Request):
         }
     }
     return JSONResponse(result)
-
-
-def make_upload_response(upload: Upload, base_url: str) -> ResponseModel:
-    # verify skip
-    result = ResponseModel()
-    base_url = str(base_url)
-    upload_date: datetime.datetime = upload.upload_date
-    with database:
-        blob: Blob = upload.blob
-    blob_address = blob.blob_address
-    extras = {}
-    if upload.latest_result is not None:
-        extra_item = {
-            'class_name': str(upload.latest_result.class_name),
-            'familiars': [blob_url(base_url, x) for x in upload.latest_result.familiars],
-        }
-        extras['detection'] = extra_item
-    result.data = {
-        'upload_id': upload.get_id(),
-        'upload_date': upload_date.strftime('%d.%m.%Y %H:%M:%S'),
-        'url': blob_url(base_url, blob),
-        'extras': extras,
-    }
-    return result
-
-
-def blob_url(base_url: str, blob: Blob) -> str:
-    blob_id1, blob_id2 = blob.blob_address
-    return f"{str(base_url).removesuffix(r'/')}/storage/blobs/{blob_id1}/{blob_id2}"
 
 
 @app.get("/upload/{upload_id}", response_model=ResponseModel)
