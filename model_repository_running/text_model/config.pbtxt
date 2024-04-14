@@ -1,0 +1,24 @@
+name: "text_model"
+backend: "python"
+max_batch_size: 8
+input [
+  {
+    name: "visual_features"
+    data_type: TYPE_FP16  
+    dims: [32, 2048]
+  }
+]
+output [
+  {
+    name: "text_output"
+    data_type: TYPE_STRING  
+    dims: [1]
+  }
+]
+instance_group [
+  {
+    count: 1
+    kind: KIND_GPU
+    gpus: [0]
+  }
+]

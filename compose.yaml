@@ -1,33 +1,67 @@
 version: '3.5'
 
 services:
-  adapter:
-    build:
-      context: .
-      dockerfile: services/adapter/Dockerfile
-    volumes:
-      - ./storage/:/storage/
-      - ./weights/:/weights/
-    environment:
-      - LOGURU_LEVEL=${LOGURU_LEVEL}
-    deploy:
-      replicas: ${NUM_REPLICAS}
-    network_mode: "host"
-  
 
-  bot:
+  # adapter:
+  #   build:
+  #     context: .
+  #     dockerfile: services/adapter/Dockerfile
+  #   volumes:
+  #     - ./storage/:/storage/
+  #     - ./weights/:/weights/
+  #   environment:
+  #     - LOGURU_LEVEL=${LOGURU_LEVEL}
+  #   deploy:
+  #     replicas: ${NUM_REPLICAS}
+  #   network_mode: "host"
+
+  # bot:
+  #   build:
+  #     context: .
+  #     dockerfile: services/bot/Dockerfile
+  #   volumes:
+  #     - ./storage/:/storage/
+  #   environment:
+  #     - LOGURU_LEVEL=${LOGURU_LEVEL}
+  #   network_mode: "host"
+
+  php:
+    container_name: php
     build:
-      context: .
-      dockerfile: services/bot/Dockerfile
+      context: ./services/frontend
+      dockerfile: docker/php/Dockerfile
     volumes:
-      - ./storage/:/storage/
+      - ./services/frontend/src/:/var/www/html/
+
+  php-apache-environment:
+    container_name: php-apache
+    build:
+      context: ./services/frontend
+      dockerfile: docker/php-apache/Dockerfile
+    volumes:
+      - ./services/frontend/src/:/var/www/html/
+      - ./services/frontend/uploads.ini:/usr/local/etc/php/conf.d/uploads.ini
+    ports:
+      - 8000:80
+
+  mysql:
+    container_name: mysql
+    image: mysql:8
     environment:
-      - LOGURU_LEVEL=${LOGURU_LEVEL}
-    network_mode: "host"
+      - MYSQL_ROOT_PASSWORD=ROOT
+
+  phpmyadmin:
+    container_name: phpmyadmin
+    image: phpmyadmin
+    restart: always
+    ports:
+      - 9001:80
+    environment:
+      - PMA_ARBITRARY=1
 
   fastapi:
     build:
       context: .
       dockerfile: services/fastapi/Dockerfile
     volumes:
-        - ./storage/:/storage/
+      - ./storage/:/storage/

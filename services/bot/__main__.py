@@ -43,8 +43,8 @@ async def send_message(chat_id, msg: dict, image_path: str, state:FSMContext):
     
     media = MediaGroupBuilder(caption=f"Топ 10 наиболее похожих изображений.")
 
-    await bot.send_message(chat_id, text=f"Описание: {msg['caption'][0]}.")
-    for hit in msg['retrieval'][0]:
+    await bot.send_message(chat_id, text=f"Класс объекта: {msg['class']}.\nОписание: {msg['caption']}.")
+    for hit in msg['retrieval']:
         media.add_photo(FSInputFile(hit))
     await bot.send_media_group(chat_id=chat_id, media=media.build())
     message = await bot.send_message(chat_id, text=config.input_question_message, reply_markup=back_menu)
@@ -100,6 +100,7 @@ async def input_image_handler(message: Message, state: FSMContext,):
     if prev_msg:
         await bot.delete_message(chat_id=message.from_user.id, message_id=prev_msg)
         await state.update_data(prev_msg_id=None)
+    
 
 
 @dp.callback_query(F.data=='process')
@@ -108,6 +109,7 @@ async def process_handler(callback: CallbackQuery, state: FSMContext):
     data = await state.get_data()
     # delete buttons after press
     await callback.message.edit_reply_markup()
+    await callback.message.answer("Пожалуйста, подождите, выполнятеся обработка...")
     user_image = data.get("user_image")
     # publish message in input queue
     chat_id = data.get('chat_id')
