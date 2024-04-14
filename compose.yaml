@@ -12,7 +12,7 @@ services:
     environment:
       - LOGURU_LEVEL=${LOGURU_LEVEL}
     deploy:
-      replicas: ${NUM_REPLICAS}
+      replicas: 1
     network_mode: "host"
 
   # bot:
@@ -25,42 +25,53 @@ services:
   #     - LOGURU_LEVEL=${LOGURU_LEVEL}
   #   network_mode: "host"
   
-  # backend:
-  #   build:
-  #     context: .
-  #     dockerfile: services/backend/Dockerfile
-  #   network_mode: "host"
+  fastapi:
+    container_name: fastapi
+    build:
+      context: .
+      dockerfile: services/backend/Dockerfile
+      args:
+        - DEFAULT_WEBHOOK_URL = "http://php:8120/upload_result.php"
+    volumes:
+      - ./backend/familiars/:/storage
+    ports:
+      - 8102:8102
+    network_mode: "host"
 
-  # php:
-  #   container_name: php
-  #   build:
-  #     context: ./services/frontend
-  #     dockerfile: docker/php/Dockerfile
-  #   volumes:
-  #     - ./services/frontend/src/:/var/www/html/
+  php:
+   container_name: php
+   build:
+     context: ./services/frontend
+     dockerfile: docker/php/Dockerfile
+     args:
+       - FASTAPI_URL = "http://fastapi:8102"
+   volumes:
+     - ./services/frontend/src/:/var/www/html/
 
-  # php-apache-environment:
-  #   container_name: php-apache
-  #   build:
-  #     context: ./services/frontend
-  #     dockerfile: docker/php-apache/Dockerfile
-  #   volumes:
-  #     - ./services/frontend/src/:/var/www/html/
-  #     - ./services/frontend/uploads.ini:/usr/local/etc/php/conf.d/uploads.ini
-  #   ports:
-  #     - 8020:80
+  php-apache-environment:
+   container_name: php-apache
+   build:
+     context: ./services/frontend
+     dockerfile: docker/php-apache/Dockerfile
+     args:
+       - FASTAPI_URL = "http://fastapi:8102"
+   volumes:
+     - ./services/frontend/src/:/var/www/html/
+     - ./services/frontend/uploads.ini:/usr/local/etc/php/conf.d/uploads.ini
+   ports:
+     - 8020:80
 
-  # mysql:
-  #   container_name: mysql
-  #   image: mysql:8
-  #   environment:
-  #     - MYSQL_ROOT_PASSWORD=ROOT
+  mysql:
+   container_name: mysql
+   image: mysql:8
+   environment:
+     - MYSQL_ROOT_PASSWORD=ROOT
 
-  # phpmyadmin:
-  #   container_name: phpmyadmin
-  #   image: phpmyadmin
-  #   restart: always
-  #   ports:
-  #     - 9020:80
-  #   environment:
-  #     - PMA_ARBITRARY=1
+  phpmyadmin:
+   container_name: phpmyadmin
+   image: phpmyadmin
+   restart: always
+   ports:
+     - 9020:80
+   environment:
+     - PMA_ARBITRARY=1
