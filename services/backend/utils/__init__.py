@@ -21,7 +21,7 @@ def make_upload_model(upload: Upload, base_url: str) -> ResponseModel:
     if upload.latest_result is not None:
         extra_item = {
             'class_name': str(upload.latest_result.class_name),
-            'familiars': [blob_url(base_url, x) for x in upload.latest_result.familiars],
+            'familiars': [blob_url(base_url, x) if type(x) is Blob else str(x) for x in upload.latest_result.familiars],
             'description': str(upload.latest_result.description),
         }
         extras['detection'] = extra_item

@@ -46,7 +46,7 @@ if ((version_compare(PHP_VERSION, '5.5') >= 0)) {
     $aPost['file'] = "@".'user_upload_img/' . $fileName;
 }
 
-curl_setopt($curl, CURLOPT_URL, $_ENV["FASTAPI_URL"]??"http://projectvoid.my.to:8102/upload");
+curl_setopt($curl, CURLOPT_URL, "http://fastapi:8102/upload");
 //curl_setopt($curl, CURLOPT_URL, "https://webhook.site/434a337a-ff60-4e9e-94f4-ffe1b968d77b");
 
 curl_setopt($curl, CURLOPT_TIMEOUT, 120);

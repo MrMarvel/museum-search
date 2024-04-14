@@ -27,23 +27,33 @@ services:
   
   fastapi:
     container_name: fastapi
+    depends_on:
+      - rabbitmq
     build:
       context: .
       dockerfile: services/backend/Dockerfile
       args:
-        - DEFAULT_WEBHOOK_URL = "http://php:8120/upload_result.php"
-    volumes:
-      - ./backend/familiars/:/storage
+        - DEFAULT_WEBHOOK_URL = "http://php:8020/upload_result.php"
     ports:
       - 8102:8102
-
+    volumes:
+      - ./storage/:/app/backend/familiars
+  rabbitmq:
+    image: rabbitmq:3.12-management
+    container_name: rabbitmq
+    environment:
+      - RABBITMQ_DEFAULT_USER=guest
+      - RABBITMQ_DEFAULT_PASS=guest
+    ports:
+      - "5672:5672"
+      - "15672:15672"
   php:
    container_name: php
    build:
      context: ./services/frontend
      dockerfile: docker/php/Dockerfile
      args:
-       - FASTAPI_URL = "http://fastapi:8102"
+       - FASTAPI_URL = "http://fastapi:8102/upload"
    volumes:
      - ./services/frontend/src/:/var/www/html/
 
@@ -53,7 +63,7 @@ services:
      context: ./services/frontend
      dockerfile: docker/php-apache/Dockerfile
      args:
-       - FASTAPI_URL = "http://fastapi:8102"
+       - FASTAPI_URL = "http://fastapi:8102/upload"
    volumes:
      - ./services/frontend/src/:/var/www/html/
      - ./services/frontend/uploads.ini:/usr/local/etc/php/conf.d/uploads.ini

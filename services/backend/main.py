@@ -261,6 +261,7 @@ rabbit_consumer_thread: RabbitConsumerThread | None = None
 @logger.catch(reraise=True)
 def main():
     config = yaml.safe_load(pathlib.Path('configs/config.yaml').read_text())
+    logger.info(config)
     if 'RABBIT_URL' not in os.environ.keys():
         if 'RABBIT_URL' in config['rabbit']:
             os.environ['RABBIT_URL'] = config['rabbit']['RABBIT_URL']

@@ -31,11 +31,14 @@ class UploadResult(BaseModel):
     result_date = DateTimeField(default=datetime.datetime.now)
 
     @property
-    def familiars(self) -> list[Blob]:
+    def familiars(self) -> list[Blob | str]:
         data = json.loads(str(self.data))
         familiar_blobs_ids: list = data['familiar_images']
         blobs = []
         for i, blob_id in enumerate(familiar_blobs_ids):
+            if str(blob_id).startswith('http'):
+                blobs.append(str(blob_id))
+                continue
             with database:
                 blob: Blob | None = Blob.get_by_id(blob_id)
             if blob is None:
