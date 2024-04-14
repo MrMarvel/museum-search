@@ -74,7 +74,7 @@ class Connector:
             durable=True,
             exclusive=False,  # если очередь уже существует,
             auto_delete=False,
-            arguments={'x-max-priority': 255, 'x-queue-type=classic': 'classic'}
+            arguments={'x-queue-type=classic': 'classic'}
         )
         logger.info(f'Queue {queue_name} has been added')
 
@@ -108,6 +108,7 @@ class Connector:
                 self.create_queue(channel, self.output_queue)
 
                 return connection, channel, self.input_queue, self.output_queue
-            except Exception as _:
+            except Exception as e:
+                logger.exception(e)
                 logger.info(f'Connection failed. Waiting for a 5 seconds...')
                 time.sleep(5)

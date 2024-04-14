@@ -8,6 +8,7 @@ import dotenv
 import peewee
 import requests
 import uvicorn
+import yaml
 from fastapi import FastAPI, UploadFile, File, Request, Body
 
 from .models import create_models
@@ -61,7 +62,9 @@ async def upload_file(request: Request, file: UploadFile = File(...),
     # task = celery_main.process_upload.apply_async(args=[upload.get_id()], expires=60 * 10)
     task = RabbitTask(task_id=upload.task_id)
     task.in_args = {
-        'upload_id': upload.get_id()
+        'upload_id': upload.get_id(),
+        'task': 'all',
+        'image_path': str(file_abs_path),
     }
     task_id = str(task.task_id)
 
@@ -223,12 +226,30 @@ async def get_blob(request: Request, container_id: str, blob_id: str):
 #
 # infiniChecker: InfiniChecker | None = None
 rabbit_consumer_thread: RabbitConsumerThread | None = None
-
-
+@logger.catch(reraise=True)
 def main():
+    config = yaml.safe_load(pathlib.Path('configs/config.yaml').read_text())
+    if 'RABBIT_URL' not in os.environ.keys():
+        if 'RABBIT_URL' in config['rabbit']:
+            os.environ['RABBIT_URL'] = config['rabbit']['RABBIT_URL']
+        if os.environ['RABBIT_URL'] is None:
+            raise ValueError("Rabbit URL not found in env or config")
+    if 'BACKEND_OUTPUT_QUEUE' not in os.environ.keys():
+        if 'INPUT_TOPIC' in config['rabbit']:
+            os.environ['BACKEND_OUTPUT_QUEUE'] = config['rabbit']['INPUT_TOPIC']
+        if os.environ['BACKEND_OUTPUT_QUEUE'] is None:
+            raise ValueError("Output queue not found in env or config")
+    if 'BACKEND_INPUT_QUEUE' not in os.environ.keys():
+        if 'OUTPUT_TOPICS' in config['rabbit']:
+            for queue_name in list(config['rabbit']['OUTPUT_TOPICS']):
+                queue_name = str(queue_name)
+                if 'backend_output' in queue_name:
+                    os.environ['BACKEND_INPUT_QUEUE'] = queue_name
+                    break
+        if os.environ['BACKEND_INPUT_QUEUE'] is None:
+            raise ValueError("Input queue not found in env or config")
     create_models()
     create_folders()
-    dotenv.load_dotenv()
     threading.Thread(target=features_load_blobs, daemon=True).start()
     threading.Thread(target=find_trash_items, kwargs={'verbose': True}, daemon=True).start()
     global infiniChecker

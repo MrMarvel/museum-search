@@ -1,3 +1,5 @@
+*.db
+
 # IntelliJ project files
 .idea
 *.iml
