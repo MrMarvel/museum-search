@@ -257,9 +257,9 @@ async def get_blob(request: Request, container_id: str, blob_id: str):
 #
 #
 # infiniChecker: InfiniChecker | None = None
-rabbit_consumer_thread: RabbitConsumerThread | None = None
-@logger.catch(reraise=True)
-def main():
+
+
+def load_yaml():
     config = yaml.safe_load(pathlib.Path('configs/config.yaml').read_text())
     logger.info(config)
     if 'RABBIT_URL' not in os.environ.keys():
@@ -279,8 +279,16 @@ def main():
                 if 'backend_output' in queue_name:
                     os.environ['BACKEND_INPUT_QUEUE'] = queue_name
                     break
-        if os.environ['BACKEND_INPUT_QUEUE'] is None:
-            raise ValueError("Input queue not found in env or config")
+    if os.environ['BACKEND_INPUT_QUEUE'] is None:
+        raise ValueError("Input queue not found in env or config")
+
+
+rabbit_consumer_thread: RabbitConsumerThread | None = None
+
+
+@logger.catch(reraise=True)
+def main():
+    load_yaml()
     # dotenv.load_dotenv(pathlib.Path(__file__).parent / '.env')
     if 'DEFAULT_WEBHOOK_URL' not in os.environ.keys():
         raise ValueError("DEFAULT_WEBHOOK_URL not found in ENVIRONMENT")
@@ -291,7 +299,7 @@ def main():
     global infiniChecker
     # infiniChecker = InfiniChecker(threading.current_thread(), daemon=True)
     # infiniChecker.start()
-    global  rabbit_consumer_thread
+    global rabbit_consumer_thread
     rabbit_consumer_thread = RabbitConsumerThread(daemon=True)
     rabbit_consumer_thread.start()
     port = 8102
