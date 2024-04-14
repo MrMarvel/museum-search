@@ -110,7 +110,7 @@ class Connector:
                 self.create_queue(channel, self.output_queue)
 
                 return connection, channel, self.input_queue, self.output_queue
-            except Exception as _:
-                logger.error(_)
+            except Exception as e:
+                logger.exception(e)
                 logger.info(f'Connection failed. Waiting for a 5 seconds...')
                 time.sleep(5)

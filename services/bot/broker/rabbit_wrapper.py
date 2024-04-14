@@ -85,7 +85,7 @@ class RabbitWrapper:
                         user_session = callback_map.pop(response.get("user_id"), None)
                         if user_session:
                             await message.ack()                            
-                            callback = user_session.callback
+                            callback = user_session.filter_call
                             chat_id = user_session.chat_id
                             event_loop = user_session.loop
                             asyncio.run_coroutine_threadsafe(callback(
