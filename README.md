@@ -75,7 +75,46 @@ Ops*
 
 ## <a name="7">Развертывание и тестирование </a>
 
+:Warning: Предварительно произведите конвертацию нейросетевых моделей в TensorRT!
+
+1. Клонируйте репозиторий
+ ```bash
+git clone https://github.com/VoLuIcHiK/museum-search.git
+```
+
+2. Измените директорию
+
+```bash
+cd museum-search
+```
+
+3. Создайте виртуальное окружение
+
+```bash
+python -m venv ./venv
+```
+4. Активируйте
+
+```bash
+source ./venv/bin/activate
+```
+
+5. Установите зависимости
+
+```bash
+pip install -r requirements.txt
+```
+
+6. Запустити всспомогательные сервисы
+```
+sh scripts/services.start.sh
+```
+
+7. Запустите основную прорамму
  
+```
+sh scripts/start.sh
+```
 
 ## <a name="9">Ссылки</a>
 - [Гугл диск с материалами](https://drive.google.com/drive/folders/1UwCNLUYw1t6u2DDVyUr7FXumXBfqObfm?usp=sharing)
