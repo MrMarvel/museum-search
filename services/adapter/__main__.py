@@ -8,6 +8,7 @@ from loguru import logger
 from PIL import Image
 from pymilvus import CollectionSchema, DataType, FieldSchema
 from transformers import Blip2Processor
+from googletrans import Translator
 
 from .src.mapping import class2idx, idx2class
 from .src.wrappers import MilvusWrapper, RabbitWrapper, TritonWrapper
@@ -36,6 +37,7 @@ class Model:
         self.storage_folder = config['storage_folder']
         self.config = config
         
+        self.translator = Translator()
         logger.success('Adapter has been initialized')
 
     
@@ -88,7 +90,8 @@ class Model:
     def captioning(self, image_path):
         image = self.processor(images=Image.open(image_path).convert('RGB'), return_tensors='np')['pixel_values']
         caption = self.ensemble_caption(image.astype(np.float16))[0][0][0]
-        result = {'caption': caption.decode()}
+        translated_cap = self.translator.translate(caption.decode(), dest='ru')
+        result = {'caption': translated_cap}
         return result
     
     
