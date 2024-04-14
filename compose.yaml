@@ -36,7 +36,6 @@ services:
       - ./backend/familiars/:/storage
     ports:
       - 8102:8102
-    network_mode: "host"
 
   php:
    container_name: php
