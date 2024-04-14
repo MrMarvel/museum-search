@@ -100,7 +100,7 @@ class Model:
         return result
 
     
-    def __call__(self, task: str, image_path: str = '', object_id: str = '', description: str = '', user_id = None):
+    def __call__(self, task: str, image_path: str = '', object_id: str = '', description: str = '', user_id = None, **kwargs):
         match task:
             case 'classification':
                 result = self.classification(image_path)

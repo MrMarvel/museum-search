@@ -60,13 +60,15 @@ class RabbitWrapper:
         if self.input_topic:
             self._create_topic(self.input_topic)
             logger.info(f'Input topic {self.input_topic} has been connected')
-        
-        if self.output_topic:
-            self._create_topic(self.output_topic)
-            logger.info(f'Output topic {self.output_topic} has been connected')
+
+        if self.output_topics:
+            for topic in self.output_topics:
+                self._create_topic(topic)
+                logger.info(f'Output topic {topic} has been connected')
+            self.output_topic = self.output_topics[0]
+
     
-    
-    def _load_env(self):
+    def _load_config(self):
         if not self.url:
             self.url = os.environ.get('RABBIT_URL', self.env.get('RABBIT_URL', None))
             

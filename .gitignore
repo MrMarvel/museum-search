@@ -25,6 +25,7 @@
 data/
 dataset*/
 
+
 model_repository_running_temp/
 outputs/
 *weights*/
@@ -39,6 +40,7 @@ tmp/
 
 # Exclude
 !*requirements*.txt
+!services/frontend/src/MINCULT_RUS_RGB.jpg
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
