@@ -90,7 +90,7 @@ class Model:
     def captioning(self, image_path):
         image = self.processor(images=Image.open(image_path).convert('RGB'), return_tensors='np')['pixel_values']
         caption = self.ensemble_caption(image.astype(np.float16))[0][0][0]
-        translated_cap = self.translator.translate(caption.decode(), dest='ru')
+        translated_cap = self.translator.translate(caption.decode(), dest='ru')[0].text
         result = {'caption': translated_cap}
         return result
     
