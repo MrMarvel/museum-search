@@ -23,7 +23,7 @@ def create_folders():
         mount_path = pathlib.Path(mount)
         with database:
             if not BlobContainer.select().where(BlobContainer.folder_path == str(mount_path)).exists():
-                BlobContainer.create(folder_path=str(mount_path))
+                BlobContainer.create(folder_path=str(mount_path), name=str(mount_path.stem))
     if not os.path.exists(ENV_FILENAME):
         os.makedirs(pathlib.Path(ENV_FILENAME).parent, exist_ok=True)
         with open(ENV_FILENAME, 'w', encoding='utf-8') as f:

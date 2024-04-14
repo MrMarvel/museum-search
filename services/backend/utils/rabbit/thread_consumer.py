@@ -22,6 +22,8 @@ class RabbitTask:
     result: dict
 
     def __init__(self,  task_id, in_args=None, callback=None, result=None):
+        if task_id is None:
+            raise ValueError("task_id is required")
         self.task_id = str(task_id)
         if in_args is None:
             in_args = {}
@@ -33,8 +35,8 @@ class RabbitTask:
 
 
 class RabbitConsumerThread(Thread):
-    def __init__(self):
-        super().__init__()
+    def __init__(self, daemon=True):
+        super().__init__(daemon=daemon)
         self._lock = threading.Lock()
         self._tasks: dict[str, RabbitTask] = {}
         self._new_item_event = Event()
@@ -44,6 +46,7 @@ class RabbitConsumerThread(Thread):
             self._tasks[rabbit_task.task_id] = rabbit_task
         self._new_item_event.set()
 
+    @logger.catch(reraise=True)
     def run(self) -> None:
         con = Connector(
             env_path=str(pathlib.Path(ENV_FILENAME))
@@ -83,26 +86,25 @@ class RabbitConsumerThread(Thread):
             body_str = body.decode('utf-8')
             body_json = json.loads(body_str)
 
-            task_id = str(body_json['task_id'])
+            task_id = str(body_json['inputs']['task_id'])
             failed = False
 
             with self._lock:
                 task = self._tasks.get(task_id)
                 if task is None:
+                    logger.warning(f"Task {task_id} not found. Skip.")
                     return
-                task.result = body_json
+                task.result = body_json['result']
 
             callback = task.callback
 
-            process_status = str(body_json['status'])
-            if process_status.lower() == 'success':
-                ready_file_path = body_json['path']
-                try:
-                    callback(ready_file_path)
-                except Exception as e:
-                    logger.exception(e)
-            else:
-                failed = True
+            # process_status = str(body_json['status'])
+            # if process_status.lower() == 'success':
+            # ready_file_path = body_json['path']
+            try:
+                callback(task)
+            except Exception as e:
+                logger.exception(e)
             return task
         except Exception as e:
             logger.exception(e)

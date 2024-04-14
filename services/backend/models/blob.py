@@ -57,6 +57,8 @@ class Blob(BaseModel):
 
     @staticmethod
     def get_blob_by_path_in_container(container: BlobContainer, path: str) -> Union['Blob', None]:
+        if container is None:
+            raise ValueError("container must be provided")
         f_path = str(pathlib.Path(path))
         return Blob.select().where(Blob.container == container, Blob.file_path == f_path).get_or_none()
 

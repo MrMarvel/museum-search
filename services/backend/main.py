@@ -11,10 +11,10 @@ import uvicorn
 import yaml
 from fastapi import FastAPI, UploadFile, File, Request, Body
 
-from .models import create_models
+from .models import create_models, UploadResult
 from .models.blob import BlobContainer
 from .utils import rabbit
-from .utils.globals import DEFAULT_WEBHOOK_URL, UPLOAD_FOLDER
+from .utils.globals import DEFAULT_WEBHOOK_URL, UPLOAD_FOLDER, ENV_FILENAME
 from .utils.rabbit.thread_consumer import RabbitConsumerThread, RabbitTask
 from .utils import *
 from .utils.file_utils import create_folders, features_load_blobs, find_trash_items
@@ -60,20 +60,52 @@ async def upload_file(request: Request, file: UploadFile = File(...),
         blob.save()
         upload.save()
     # task = celery_main.process_upload.apply_async(args=[upload.get_id()], expires=60 * 10)
-    task = RabbitTask(task_id=upload.task_id)
+    task = RabbitTask(task_id=upload.get_id())
     task.in_args = {
-        'upload_id': upload.get_id(),
+        'task_id': task.task_id,
         'task': 'all',
-        'image_path': str(file_abs_path),
+        'image_path': str("/storage/83137/20110231.jpg"),
     }
     task_id = str(task.task_id)
 
-    def _callback(_: dict):
+    @logger.catch(reraise=True)
+    def _callback(result_task: RabbitTask):
+        with database:
+            upload: Upload = Upload.get_by_id(result_task.task_id)
+            familiar_container = BlobContainer.get_by_name('familiars')
+        inner_result = result_task.result
+        class_name = inner_result.get('class', "Unknown")
+        caption = inner_result.get('caption', "")
+        familiar_images: list[str] = [str(x) for x in inner_result.get('retrieval', list())]
+        data = {
+            'class_name': class_name,
+            'familiar_images': familiar_images,
+            'description': caption,
+        }
+        paths = data['familiar_images']
+        for path_num, path in enumerate(paths.copy()):
+            if path.startswith('http'):
+                continue
+            new_path = str('/'.join(pathlib.Path(path).parts[-2:]))
+            logger.info(f"Changed path {path} to {new_path}")
+            with database:
+                familiar_blob = Blob.get_blob_by_path_in_container(familiar_container, new_path)
+            if not familiar_blob:
+                logger.warning(f"Blob not found for path {path}. Skip.")
+                continue
+            blob_id = familiar_blob.get_id()
+            paths[path_num] = blob_id
+        # save the result
+        with database:
+            UploadResult.create(upload=upload, data=json.dumps(data, ensure_ascii=False))
+        logger.info(f"Saved UploadResult {UploadResult}")
+
         res_model = make_upload_model(upload, str(request.base_url))
         if webhook_request_id is not None:
             res_model.data['webhook_request_id'] = webhook_request_id
         if webhook_url is not None:
             send_model_to_webhook(res_model, webhook_url)
+
     task.callback = _callback
     rabbit_consumer_thread.add_task(task)
     rabbit.compact_publish_data(task.in_args)
@@ -248,6 +280,9 @@ def main():
                     break
         if os.environ['BACKEND_INPUT_QUEUE'] is None:
             raise ValueError("Input queue not found in env or config")
+    # dotenv.load_dotenv(pathlib.Path(__file__).parent / '.env')
+    if 'DEFAULT_WEBHOOK_URL' not in os.environ.keys():
+        raise ValueError("DEFAULT_WEBHOOK_URL not found in ENVIRONMENT")
     create_models()
     create_folders()
     threading.Thread(target=features_load_blobs, daemon=True).start()
@@ -256,7 +291,7 @@ def main():
     # infiniChecker = InfiniChecker(threading.current_thread(), daemon=True)
     # infiniChecker.start()
     global  rabbit_consumer_thread
-    rabbit_consumer_thread = RabbitConsumerThread()
+    rabbit_consumer_thread = RabbitConsumerThread(daemon=True)
     rabbit_consumer_thread.start()
     port = 8102
     logger.info(f"Access: http://127.0.0.1:{port}")

@@ -46,3 +46,7 @@ class UploadResult(BaseModel):
     @property
     def class_name(self) -> str:
         return json.loads(str(self.data))['class_name']
+
+    @property
+    def description(self) -> str:
+        return json.loads(str(self.data))['description']

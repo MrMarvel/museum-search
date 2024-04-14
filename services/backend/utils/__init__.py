@@ -22,6 +22,7 @@ def make_upload_model(upload: Upload, base_url: str) -> ResponseModel:
         extra_item = {
             'class_name': str(upload.latest_result.class_name),
             'familiars': [blob_url(base_url, x) for x in upload.latest_result.familiars],
+            'description': str(upload.latest_result.description),
         }
         extras['detection'] = extra_item
     result.data = {
