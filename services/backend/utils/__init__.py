@@ -7,7 +7,7 @@ from loguru import logger
 from starlette.responses import JSONResponse
 
 from ..models import Upload, database, Blob
-from ..pydantic_models import ResponseModel
+from ..pydantic_models import ResponseModel, ErrorResponse
 
 
 def make_upload_model(upload: Upload, base_url: str) -> ResponseModel:

@@ -145,7 +145,7 @@ class RabbitWrapper:
                 answer = json.dumps(item)
             msg = amqp.basic_message.Message(body=answer)
             self.channel.basic_publish(msg, exchange='', routing_key=output_topic)
-            logger.debug(f'Publish msg to {output_topic}: {msg}')
+            logger.debug(f'Publish msg to {output_topic}: {answer}')
 
     def listen(self, num=-1, pipeline: Callable | None = None, ack: bool = False):
         assert self.input_topic, 'There is input topic needed'

@@ -39,7 +39,7 @@ services:
       - 8102:8102
     volumes:
       - ./storage/:/app/backend/familiars
-      - ./tmp/backend/:/app/backend/tmp/
+      - ./services/backend/tmp/:/app/backend/tmp/
     extra_hosts:
       - "host.docker.internal:host-gateway"
 

@@ -64,7 +64,7 @@ async def upload_file(request: Request, file: UploadFile = File(...),
     task.in_args = {
         'task_id': task.task_id,
         'task': 'all',
-        'image_path': str("/storage/83137/20110231.jpg"),
+        'image_path': str(file_abs_path),
     }
     task_id = str(task.task_id)
 
@@ -176,10 +176,9 @@ async def get_upload(request: Request, upload_id: int):
 @return_error_response
 async def get_blob(request: Request, container_id: str, blob_id: str):
     result = ResponseModel()
-    try:
-        with database:
-            blob: Blob = Blob.get_blob_by_hex(container_id, blob_id)
-    except peewee.DoesNotExist:
+    with database:
+        blob: Blob = Blob.get_blob_by_hex(container_id, blob_id)
+    if blob is None:
         result.error = "Blob not found"
         result.status = ResponseModel.Status.error
         return fastapi.responses.JSONResponse(content=result.dict, status_code=fastapi.status.HTTP_404_NOT_FOUND)
@@ -188,6 +187,7 @@ async def get_blob(request: Request, container_id: str, blob_id: str):
     if not os.path.exists(file_path):
         result.error = "File not found"
         result.status = ResponseModel.Status.error
+        logger.info(f"File not found: {file_path}")
         return fastapi.responses.JSONResponse(content=result.dict, status_code=fastapi.status.HTTP_404_NOT_FOUND)
     return fastapi.responses.FileResponse(file_path)
 

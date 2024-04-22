@@ -25,7 +25,9 @@ def main():
              'result': {
                  'class_name': 'cls1',
                  'caption:': 'cool_text',
-                 'retrieval': [r"D:\Users\Sergey\Pictures\BlueStacks\photo_2021-10-16_16-09-13.jpg",
+                 'retrieval': [
+                     result['image_path'],
+                     r"D:\Users\Sergey\Pictures\BlueStacks\photo_2021-10-16_16-09-13.jpg",
                                'https://super.ru/image/rs::384:::/quality:90/plain/s3:/super-static/prod'
                                '/6235e12ba501412aae40dc87-1900x.jpeg']
              }},
