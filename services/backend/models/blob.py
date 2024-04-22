@@ -3,6 +3,7 @@ import pathlib
 import secrets
 from typing import Union
 
+import peewee
 from peewee import CharField, DateTimeField, ForeignKeyField
 
 from .base import BaseModel
@@ -52,15 +53,21 @@ class Blob(BaseModel):
     @staticmethod
     def get_blob_by_hex(hex_folder, hex_blob) -> Union['Blob', None]:
         container = BlobContainer.select().where(BlobContainer.hex_id == hex_folder).get_or_none()
-        blob = Blob.select().where(Blob.container == container, Blob.hex_id == hex_blob).get_or_none()
-        return blob
+        try:
+            blob = Blob.select().where(Blob.container == container, Blob.hex_id == hex_blob).get_or_none()
+            return blob
+        except peewee.DoesNotExist:
+            return None
 
     @staticmethod
     def get_blob_by_path_in_container(container: BlobContainer, path: str) -> Union['Blob', None]:
         if container is None:
             raise ValueError("container must be provided")
         f_path = str(pathlib.Path(path))
-        return Blob.select().where(Blob.container == container, Blob.file_path == f_path).get_or_none()
+        try:
+            return Blob.select().where(Blob.container == container, Blob.file_path == f_path).get_or_none()
+        except peewee.DoesNotExist:
+            return None
 
     def resolve_path(self) -> str:
         return str(pathlib.Path(str(self.container.folder_path)) / self.file_path)

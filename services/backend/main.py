@@ -91,6 +91,11 @@ async def upload_file(request: Request, file: UploadFile = File(...),
             with database:
                 familiar_blob = Blob.get_blob_by_path_in_container(familiar_container, new_path)
             if not familiar_blob:
+                logger.warning(f"Blob not found for path {path}. Creating new")
+                with database:
+                    familiar_blob = Blob(container=familiar_container, file_path=path)
+                    familiar_blob.save()
+            if not familiar_blob:
                 logger.warning(f"Blob not found for path {path}. Skip.")
                 continue
             blob_id = familiar_blob.get_id()
@@ -294,13 +299,14 @@ def main():
         raise ValueError("DEFAULT_WEBHOOK_URL not found in ENVIRONMENT")
     create_models()
     create_folders()
-    threading.Thread(target=features_load_blobs, daemon=True).start()
+    # threading.Thread(target=features_load_blobs, daemon=True).start()
     threading.Thread(target=find_trash_items, kwargs={'verbose': True}, daemon=True).start()
     global infiniChecker
     # infiniChecker = InfiniChecker(threading.current_thread(), daemon=True)
     # infiniChecker.start()
     global rabbit_consumer_thread
-    rabbit_consumer_thread = RabbitConsumerThread(daemon=True)
+    logger.info(f"MAIN, {os.environ}")
+    rabbit_consumer_thread = RabbitConsumerThread(daemon=True, env=os.environ)
     rabbit_consumer_thread.start()
     port = 8102
     logger.info(f"Access: http://127.0.0.1:{port}")

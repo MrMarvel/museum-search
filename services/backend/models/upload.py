@@ -2,6 +2,7 @@ import datetime
 import json
 from typing import Union
 
+import peewee
 from peewee import ForeignKeyField, TextField, DateTimeField, CharField
 
 from .base import BaseModel, database
@@ -40,7 +41,10 @@ class UploadResult(BaseModel):
                 blobs.append(str(blob_id))
                 continue
             with database:
-                blob: Blob | None = Blob.get_by_id(blob_id)
+                try:
+                    blob: Blob | None = Blob.get_by_id(blob_id)
+                except peewee.DoesNotExist:
+                    blob = None
             if blob is None:
                 continue
             blobs.append(blob)

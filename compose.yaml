@@ -32,13 +32,17 @@ services:
     build:
       context: .
       dockerfile: services/backend/Dockerfile
-      args:
-        - DEFAULT_WEBHOOK_URL = "http://php:8020/upload_result.php"
+    environment:
+        - DEFAULT_WEBHOOK_URL=http://host.docker.internal:8020/upload_result.php
+        - RABBIT_URL=amqp://guest:guest@host.docker.internal:5672/
     ports:
       - 8102:8102
     volumes:
       - ./storage/:/app/backend/familiars
       - ./tmp/backend/:/app/backend/tmp/
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
   rabbitmq:
     image: rabbitmq:3.12-management
     container_name: rabbitmq
@@ -48,13 +52,14 @@ services:
     ports:
       - "5672:5672"
       - "15672:15672"
+
   php:
    container_name: php
    build:
      context: ./services/frontend
      dockerfile: docker/php/Dockerfile
-     args:
-       - FASTAPI_URL = "http://fastapi:8102/upload"
+   environment:
+     - FASTAPI_URL=http://host.docker.internal:8102/upload
    volumes:
      - ./services/frontend/src/:/var/www/html/
 
@@ -63,17 +68,21 @@ services:
    build:
      context: ./services/frontend
      dockerfile: docker/php-apache/Dockerfile
-     args:
-       - FASTAPI_URL = "http://fastapi:8102/upload"
+   environment:
+     - FASTAPI_URL = http://host.docker.internal:8102/upload
    volumes:
      - ./services/frontend/src/:/var/www/html/
      - ./services/frontend/uploads.ini:/usr/local/etc/php/conf.d/uploads.ini
    ports:
      - 8020:80
+   extra_hosts:
+     - "host.docker.internal:host-gateway"
 
   mysql:
    container_name: mysql
-   image: mysql:8
+   build:
+     context: .
+     dockerfile: docker/mysql.Dockerfile
    environment:
      - MYSQL_ROOT_PASSWORD=ROOT
 

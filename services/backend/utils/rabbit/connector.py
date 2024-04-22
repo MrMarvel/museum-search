@@ -33,6 +33,7 @@ class Connector:
         # logger.info(dict(os.environ))
         # print(dict(os.environ))
         self.url = os.environ.get('RABBIT_URL')
+        logger.info(f"Rabbit URL: {self.url}")
         protocol = self.url.split('//')[0].rstrip(':')
         without_protocol = self.url.split('//')[-1]
         if '@' in self.url:
@@ -44,13 +45,13 @@ class Connector:
         host_with_port = after_username.split('/')[0]
         self.ip = host_with_port.split(':')[0]
         if len(host_with_port.split(':')) > 1:
-            self.port = host_with_port.split(':')[1]
+            self.port = int(host_with_port.split(':')[1])
         self.virtual_host = ''
         if len(after_username.split('/')) > 1:
             self.virtual_host = after_username.split('/')[1]
 
-        logger.info(f"{self.ip}, {self.virtual_host}, {self.port}, {self.virtual_host}")
-        logger.info(f"{self.username}, {self.password}, {self.port}, {self.virtual_host}")
+        logger.info(f"{self.ip}, {self.port}, vhost \"{self.virtual_host}\"")
+        logger.info(f"{self.username}, {self.password}")
         self.input_queue = os.environ.get('BACKEND_INPUT_QUEUE')
         self.output_queue = os.environ.get('BACKEND_OUTPUT_QUEUE')
 

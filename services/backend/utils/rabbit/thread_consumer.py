@@ -1,4 +1,5 @@
 import json
+import os
 import pathlib
 import secrets
 import threading
@@ -35,8 +36,9 @@ class RabbitTask:
 
 
 class RabbitConsumerThread(Thread):
-    def __init__(self, daemon=True):
+    def __init__(self, daemon=True, env=None):
         super().__init__(daemon=daemon)
+        self._env = env if env is not None else dict()
         self._lock = threading.Lock()
         self._tasks: dict[str, RabbitTask] = {}
         self._new_item_event = Event()
@@ -48,9 +50,8 @@ class RabbitConsumerThread(Thread):
 
     @logger.catch(reraise=True)
     def run(self) -> None:
-        con = Connector(
-            env_path=str(pathlib.Path(ENV_FILENAME))
-        )
+        logger.info(f"THREAD, {os.environ}")
+        con = Connector()
         # connection, channel, input_queue, output_queue
         while True:
             try:

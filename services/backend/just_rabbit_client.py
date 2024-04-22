@@ -15,17 +15,19 @@ def main():
     while True:
         time.sleep(1)
         result = r.listen(1, ack=True)
-        print(result)
         if result is None or len(result) < 1:
             continue
+        print(result)
+        if type(result) is list:
+            result = result[0]
         r.publish(
-            {'input':
-                 {'task_id': result['task_id']},
+            {'inputs': {'task_id': result['task_id']},
              'result': {
                  'class_name': 'cls1',
                  'caption:': 'cool_text',
-                 'retrieval': [r'F:\Users\Sergey\Projects\PyProjects\museum-search\storage\85587\20110220.jpg',
-                               'https://rutube.ru/api/video/preview/615182ccc47ca640b58c86d9e3369853']
+                 'retrieval': [r"D:\Users\Sergey\Pictures\BlueStacks\photo_2021-10-16_16-09-13.jpg",
+                               'https://super.ru/image/rs::384:::/quality:90/plain/s3:/super-static/prod'
+                               '/6235e12ba501412aae40dc87-1900x.jpeg']
              }},
             r.output_topic)
 

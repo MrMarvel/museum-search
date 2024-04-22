@@ -37,7 +37,7 @@ class RabbitWrapper:
             config: dict = {},
             url: str | None = None,
             input_topic: str | None = None,
-            output_topics: str | None = None,
+            output_topics: list[str] | None = None,
             swap_topics: bool = False
     ) -> None:
         self.url = url
@@ -87,7 +87,7 @@ class RabbitWrapper:
             durable=True,
             exclusive=False,
             auto_delete=False,
-            arguments={'x-max-priority': 255, 'x-queue-type=classic': 'classic'}
+            arguments={'x-queue-type=classic': 'classic'}
         )
         logger.debug(f'Topic {topic_name} has been created')
 
@@ -145,9 +145,9 @@ class RabbitWrapper:
                 answer = json.dumps(item)
             msg = amqp.basic_message.Message(body=answer)
             self.channel.basic_publish(msg, exchange='', routing_key=output_topic)
-            logger.debug(f'Publish msg to {output_topic}')
+            logger.debug(f'Publish msg to {output_topic}: {msg}')
 
-    def listen(self, num=-1, pipeline: Callable | None = None, ack: bool = False) -> None:
+    def listen(self, num=-1, pipeline: Callable | None = None, ack: bool = False):
         assert self.input_topic, 'There is input topic needed'
 
         if pipeline:
@@ -156,7 +156,7 @@ class RabbitWrapper:
 
         n = 0
         payloads = []
-        logger.info(f'Start consuming on {self.input_topic}')
+        # logger.info(f'Start consuming on {self.input_topic}')
         while True:
             try:
                 message = self.channel.basic_get(queue=self.input_topic)
