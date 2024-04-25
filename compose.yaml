@@ -94,3 +94,7 @@ services:
      - 9020:80
    environment:
      - PMA_ARBITRARY=1
+
+networks:
+  default:
+    name: museum
